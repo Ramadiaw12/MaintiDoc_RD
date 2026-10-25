@@ -64,3 +64,25 @@ class ParsedPDF:
                             metadata={**base_meta, "type": "table", "table_index": t_index},
                         )
                     ) 
+            # Parcourt chaque image trouvée sur la page, vérifie si elle a déjà été vue (en utilisant son xref), et si elle est suffisamment grande (en vérifiant sa largeur et sa hauteur). Si l'image est valide, elle est extraite, enregistrée dans le répertoire des images avec un nom de fichier unique basé sur le numéro de page et le xref, et ajoutée à la liste images de l'objet ParsedPDF avec les métadonnées correspondantes, y compris le chemin du fichier, la largeur et la hauteur de l'image.
+            for img in page.get_images(full=True):
+                xref = img[0]
+                if xref in seen_xrefs:
+                    continue
+                seen_xrefs.add(xref)
+
+                info = pdf.extract_image(xref)
+                if info["width"] < MIN_IMAGE_SIZE or info["height"] < MIN_IMAGE_SIZE:
+                    continue
+
+                filename = f"p{page_number}_img{xref}.{info['ext']}"
+                path = images_dir / filename
+                path.write_bytes(info["image"])
+
+                result.images.append(
+                    {**base_meta, "type": "image", "file_path": str(path),
+                    "width": info["width"], "height": info["height"]}
+                )
+
+        pdf.close()
+        return result
