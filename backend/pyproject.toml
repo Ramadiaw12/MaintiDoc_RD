@@ -6,9 +6,11 @@ readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "httpx>=0.28.1",
+    "llama-index-core>=0.14.25",
     "pgvector>=0.5.1",
     "psycopg2-binary>=2.9.13",
     "psycopg[binary]>=3.3.6",
     "pydantic-settings>=2.16.1",
+    "pymupdf>=2.0",
     "sqlalchemy>=2.1.6",
 ]
