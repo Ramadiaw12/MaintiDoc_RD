@@ -1,6 +1,5 @@
-# Activation de l'extension pgvector dans la base maintidoc
 CREATE EXTENSION IF NOT EXISTS vector;
-# 
+
 CREATE TABLE IF NOT EXISTS documents (
     id SERIAL PRIMARY KEY,
     filename TEXT NOT NULL,
