@@ -1,4 +1,5 @@
-#
+# Configution de l'application en utilisant Pydantic pour gérer les paramètres de configuration. 
+# Les paramètres sont chargés à partir d'un fichier .env situé à la racine du projet
 import hashlib 
 from dataclasses import dataclass, field
 from pathlib import Path # Manipule les chemins des fichiers proprement 
@@ -74,11 +75,12 @@ class ParsedPDF:
                 info = pdf.extract_image(xref)
                 if info["width"] < MIN_IMAGE_SIZE or info["height"] < MIN_IMAGE_SIZE:
                     continue
-
+                # Crée un nom de fichier unique pour l'image en utilisant le numéro de page et le xref, et en ajoutant l'extension appropriée. Le nom de fichier est ensuite utilisé pour créer un chemin complet vers le répertoire des images, et l'image est enregistrée sur le disque à cet emplacement
                 filename = f"p{page_number}_img{xref}.{info['ext']}"
                 path = images_dir / filename
                 path.write_bytes(info["image"])
 
+                # Ajout des métadonnées de l'image à la liste images de l'objet ParsedPDF, y compris le type d'image, le chemin du fichier, la largeur et la hauteur de l'image. Les métadonnées sont combinées avec les métadonnées de base (nom du fichier source et numéro de page) pour fournir des informations complètes sur l'image extraite
                 result.images.append(
                     {**base_meta, "type": "image", "file_path": str(path),
                     "width": info["width"], "height": info["height"]}

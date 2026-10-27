@@ -11,6 +11,7 @@ with engine.connect() as conn:
         text("SELECT extname FROM pg_extension WHERE extname='vector'")
     ).scalar())
 
-# Vérification de la disponibilité du service Ollama en effectuant une requête HTTP GET à l'URL de base d'Ollama définie dans les paramètres de configuration. La réponse est ensuite analysée pour afficher les modèles disponibles
+# Vérification de la disponibilité du service Ollama en effectuant une requête HTTP GET à l'URL de base d'Ollama définie dans les paramètres de configuration. 
+# La réponse est ensuite analysée pour afficher les modèles disponibles
 r = httpx.get(f"{settings.ollama_base_url}/api/tags")
 print("Ollama     :", [m["name"] for m in r.json()["models"]])
