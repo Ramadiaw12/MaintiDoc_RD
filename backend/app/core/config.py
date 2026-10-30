@@ -19,6 +19,7 @@ class Settings(BaseSettings):
     llm_model: str = "qwen2.5:3b"
     embedding_model: str = "BAAI/bge-small-en-v1.5"
     embedding_dim: int = 384
+    vision_model: str = "moondream"
     groq_api_key: str | None = None
 
 # Instanciation de la classe Settings pour accéder aux paramètres de configuration dans l'application
