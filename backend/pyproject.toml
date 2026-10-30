@@ -10,6 +10,7 @@ dependencies = [
     "llama-index-embeddings-huggingface>=0.8.0",
     "llama-index-vector-stores-postgres>=0.9.0",
     "pgvector>=0.5.1",
+    "pillow>=13.0.0",
     "psycopg2-binary>=2.9.13",
     "psycopg[binary]>=3.3.6",
     "pydantic-settings>=2.16.1",
