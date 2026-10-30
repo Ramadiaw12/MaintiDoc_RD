@@ -3,7 +3,7 @@ from sqlalchemy.engine import make_url
 
 from app.core.config import settings
 
-
+# 
 def get_text_vector_store() -> PGVectorStore:
     url = make_url(settings.database_url)
     return PGVectorStore.from_params(
@@ -13,5 +13,5 @@ def get_text_vector_store() -> PGVectorStore:
         user=url.username,
         password=url.password,
         table_name="text_chunks",
-        embed_dim=settings.embedding_dim,
+        embed_dim=settings.embedding_dim, 
     )
