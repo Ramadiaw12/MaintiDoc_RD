@@ -1,3 +1,5 @@
+# 
+
 from pathlib import Path
 
 from llama_index.core import StorageContext, VectorStoreIndex
@@ -9,6 +11,7 @@ from app.ingestion.chunker import build_nodes
 from app.ingestion.embeddings import get_embed_model
 from app.ingestion.parser import compute_hash, parse_pdf
 
+# Extraction 
 EXTRACTED_DIR = Path(__file__).resolve().parents[2] / "data" / "extracted"
 
 
