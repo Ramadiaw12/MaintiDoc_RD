@@ -1,4 +1,5 @@
 # Transformation
+# Charger le modèle d'intégration HuggingFace à partir des paramètres de configuration et le mettre en cache pour une utilisation ultérieure.
 from functools import lru_cache
 
 from llama_index.embeddings.huggingface import HuggingFaceEmbedding

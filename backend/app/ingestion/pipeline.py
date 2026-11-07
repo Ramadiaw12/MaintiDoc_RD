@@ -1,4 +1,4 @@
-# 
+# Enchaîne le tout , avec une transaction SQL pour enregistrer le document et ses images, puis découpe les documents textuels et tabulaires en nœuds de texte, calcule leurs embeddings et les stocke dans le magasin vectoriel PGVectorStore.
 
 from pathlib import Path
 
@@ -14,7 +14,7 @@ from app.ingestion.parser import compute_hash, parse_pdf
 # Extraction 
 EXTRACTED_DIR = Path(__file__).resolve().parents[2] / "data" / "extracted"
 
-
+# Fonction ingest_pdf qui prend en entrée le chemin d'un fichier PDF, vérifie s'il a déjà été indexé en consultant la base de données, puis extrait les informations du PDF, enregistre le document et ses images dans la base de données, découpe les documents textuels et tabulaires en nœuds de texte, calcule leurs embeddings et les stocke dans le magasin vectoriel PGVectorStore. La fonction retourne un dictionnaire contenant le statut de l'opération, l'identifiant du document, le nombre de nœuds créés et le nombre d'images extraites.
 def ingest_pdf(pdf_path: str | Path) -> dict:
     pdf_path = Path(pdf_path)
     file_hash = compute_hash(pdf_path)

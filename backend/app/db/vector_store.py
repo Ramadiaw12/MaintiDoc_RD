@@ -1,3 +1,4 @@
+# Lie la base de données PostgreSQL et le magasin vectoriel PGVectorStore pour stocker les nœuds de texte et leurs intégrations.
 from llama_index.vector_stores.postgres import PGVectorStore
 from sqlalchemy.engine import make_url
 
