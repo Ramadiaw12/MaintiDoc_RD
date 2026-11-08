@@ -1,3 +1,5 @@
+# Creation d'un prompt système pour un assistant documentaire appelé MaintiDoc, destiné aux techniciens de maintenance. Le prompt définit des règles strictes pour guider le comportement de l'assistant lors de la réponse aux questions posées par les utilisateurs. 
+# Il insiste sur l'utilisation exclusive des extraits fournis dans le contexte, la citation des sources, et la précision des réponses sans invention de contenu.
 SYSTEM_PROMPT = """Tu es MaintiDoc, un assistant documentaire pour techniciens de maintenance.
 
 Règles strictes :
