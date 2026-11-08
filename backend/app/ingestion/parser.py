@@ -1,36 +1,42 @@
-# Configution de l'application en utilisant Pydantic pour gérer les paramètres de configuration. 
-# Les paramètres sont chargés à partir d'un fichier .env situé à la racine du projet
-import hashlib 
+# Fichier pour analyser un PDF et extraire le texte, les tableaux et les images, 
+# en utilisant PyMuPDF pour lire le PDF et LlamaIndex pour créer des documents à partir du texte et des tableaux. 
+# Les images raster sont extraites et enregistrées dans un répertoire spécifié, tandis que les figures vectorielles sont rendues en PNG et également enregistrées. Le résultat est encapsulé dans une classe ParsedPDF qui contient le nom du fichier, le hachage du fichier, le nombre de pages, les documents textuels et tabulaires, ainsi que les informations sur les images extraites.
+import hashlib
 from dataclasses import dataclass, field
-from pathlib import Path # Manipule les chemins des fichiers proprement 
+from pathlib import Path
 
 import pymupdf
 from llama_index.core import Document
 
-# Crée une classe qui sert uniquement à regrouper les données extraites d'un PDF, telles que le nom du fichier, le hachage du fichier, le nombre de pages, les documents textuels et tabulaires, ainsi que les images. Cette classe est utilisée pour stocker et organiser les informations extraites d'un PDF de manière structurée.
+from app.ingestion.figures import extract_vector_figures
+
+MIN_IMAGE_SIZE = 80  # pixels : on ignore les petites icônes
+
+
+# Alors nous avons la classe ParsedPDF qui est un conteneur pour les informations extraites d'un PDF. 
+# Elle contient le nom du fichier, le hachage du fichier, le nombre de pages, une liste de documents textuels, une liste de documents tabulaires et une liste d'images. Les listes sont initialisées avec des valeurs par défaut vides à l'aide de field(default_factory=list) 
+# Cette classe est utilisée pour encapsuler les résultats de l'analyse d'un PDF et faciliter l'accès aux différentes parties du contenu extrait
 @dataclass
 class ParsedPDF:
     filename: str
     file_hash: str
     page_count: int
-    # Document est l’objet LlamaIndex qui contient un text et un dictionnaire metadata
     text_docs: list[Document] = field(default_factory=list)
     table_docs: list[Document] = field(default_factory=list)
-    images: list[dict] = field(default_factory=list) # Commence par une liste vide pour stocker les images extraites du PDF. Chaque image est représentée par un dictionnaire contenant des informations sur l'image, telles que son nom de fichier et son contenu binaire
+    images: list[dict] = field(default_factory=list)
 
-    # Le hash du fichier PDF est calculé en lisant le fichier par blocs de 1 Mo et en mettant à jour l'objet de hachage SHA-256 avec chaque bloc. Le hachage final est renvoyé sous forme de chaîne hexadécimale.
-    # Le hash est l’empreinte unique d’un fichier. Deux PDF identiques donnent le même hash, ce qui permettra d’éviter de ré-indexer un document déjà traité
+# Alors nous avons la fonction compute_hash qui prend en entrée le chemin d'un fichier PDF et calcule son hachage SHA-256.
+# Elle ouvre le fichier en mode binaire, lit le contenu par blocs de 1 Mo, et met à jour l'objet de hachage avec chaque bloc 
+# Enfin, elle retourne le hachage sous forme de chaîne hexadécimale. Cette fonction est utilisée pour générer un identifiant unique pour le fichier PDF, ce qui permet de vérifier s'il a déjà été indexé dans la base de données.
 def compute_hash(pdf_path: Path) -> str:
     sha = hashlib.sha256()
     with open(pdf_path, "rb") as f:
         for block in iter(lambda: f.read(1024 * 1024), b""):
             sha.update(block)
-    return sha.hexdigest() # Renvoie le hachage final sous forme de chaîne hexadécimale, qui peut être utilisé pour identifier de manière unique le fichier PDF.
+    return sha.hexdigest()
 
-
-MIN_IMAGE_SIZE = 80  # pixels : on ignore les petites icônes
-
-    # La fonction parse_pdf lit un fichier PDF, crée un répertoire pour stocker les images extraites, et retourne un objet ParsedPDF contenant des informations sur le PDF, telles que le nom du fichier, le hachage du fichier, le nombre de pages, ainsi que les documents textuels et tabulaires et les images extraites
+# Alors nous avons la fonction parse_pdf qui prend en entrée le chemin d'un fichier PDF et un répertoire pour stocker les images extraites.
+# Elle ouvre le PDF avec PyMuPDF, parcourt chaque page, extrait le texte et les tableaux, et enregistre les images raster et vectorielles dans le répertoire spécifié
 def parse_pdf(pdf_path: str | Path, images_dir: str | Path) -> ParsedPDF:
     pdf_path = Path(pdf_path)
     images_dir = Path(images_dir)
@@ -44,7 +50,6 @@ def parse_pdf(pdf_path: str | Path, images_dir: str | Path) -> ParsedPDF:
     )
     seen_xrefs: set[int] = set()
 
-    # Parcourt chaque page du PDF, extrait le texte et les tableaux, et les stocke dans l'objet ParsedPDF. Pour chaque page, il crée un dictionnaire de métadonnées contenant le nom du fichier source et le numéro de page. Si du texte est trouvé sur la page, il est ajouté à la liste text_docs de l'objet ParsedPDF avec les métadonnées correspondantes. De même, si des tableaux sont trouvés sur la page, ils sont convertis en format Markdown et ajoutés à la liste table_docs avec les métadonnées correspondantes, y compris l'index du tableau.
     for page_index, page in enumerate(pdf):
         page_number = page_index + 1
         base_meta = {"source": pdf_path.name, "page": page_number}
@@ -55,8 +60,8 @@ def parse_pdf(pdf_path: str | Path, images_dir: str | Path) -> ParsedPDF:
                 Document(text=text, metadata={**base_meta, "type": "text"})
             )
 
-        # Parcourt chaque tableau trouvé sur la page, le convertit en format Markdown, et l'ajoute à la liste table_docs de l'objet ParsedPDF avec les métadonnées correspondantes, y compris l'index du tableau. Si le tableau est vide (après suppression des espaces), il n'est pas ajouté à la liste.
-        for t_index, table in enumerate(page.find_tables().tables, start=1):
+        tables = page.find_tables().tables
+        for t_index, table in enumerate(tables, start=1):
             markdown = table.to_markdown()
             if markdown.strip():
                 result.table_docs.append(
@@ -64,8 +69,9 @@ def parse_pdf(pdf_path: str | Path, images_dir: str | Path) -> ParsedPDF:
                         text=markdown,
                         metadata={**base_meta, "type": "table", "table_index": t_index},
                     )
-                ) 
-        # Parcourt chaque image trouvée sur la page, vérifie si elle a déjà été vue (en utilisant son xref), et si elle est suffisamment grande (en vérifiant sa largeur et sa hauteur). Si l'image est valide, elle est extraite, enregistrée dans le répertoire des images avec un nom de fichier unique basé sur le numéro de page et le xref, et ajoutée à la liste images de l'objet ParsedPDF avec les métadonnées correspondantes, y compris le chemin du fichier, la largeur et la hauteur de l'image.
+                )
+
+        # Images raster (PNG/JPEG intégrés dans le PDF)
         for img in page.get_images(full=True):
             xref = img[0]
             if xref in seen_xrefs:
@@ -75,16 +81,20 @@ def parse_pdf(pdf_path: str | Path, images_dir: str | Path) -> ParsedPDF:
             info = pdf.extract_image(xref)
             if info["width"] < MIN_IMAGE_SIZE or info["height"] < MIN_IMAGE_SIZE:
                 continue
-            # Crée un nom de fichier unique pour l'image en utilisant le numéro de page et le xref, et en ajoutant l'extension appropriée. Le nom de fichier est ensuite utilisé pour créer un chemin complet vers le répertoire des images, et l'image est enregistrée sur le disque à cet emplacement
+
             filename = f"p{page_number}_img{xref}.{info['ext']}"
             path = images_dir / filename
             path.write_bytes(info["image"])
-
-            # Ajout des métadonnées de l'image à la liste images de l'objet ParsedPDF, y compris le type d'image, le chemin du fichier, la largeur et la hauteur de l'image. Les métadonnées sont combinées avec les métadonnées de base (nom du fichier source et numéro de page) pour fournir des informations complètes sur l'image extraite
             result.images.append(
                 {**base_meta, "type": "image", "file_path": str(path),
-                "width": info["width"], "height": info["height"]}
+                 "width": info["width"], "height": info["height"]}
             )
 
-        pdf.close()
-        return result
+        # Figures vectorielles (schémas dessinés), rendues en PNG
+        table_rects = [pymupdf.Rect(t.bbox) for t in tables]
+        result.images.extend(
+            extract_vector_figures(page, page_number, images_dir, table_rects, base_meta)
+        )
+
+    pdf.close()
+    return result
