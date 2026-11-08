@@ -21,6 +21,7 @@ class Settings(BaseSettings):
     embedding_dim: int = 384
     vision_model: str = "moondream"
     groq_api_key: str | None = None
+    vision_model: str = "moondream"
 
 # Instanciation de la classe Settings pour accéder aux paramètres de configuration dans l'application
 settings = Settings()
