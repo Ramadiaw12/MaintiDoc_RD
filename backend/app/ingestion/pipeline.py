@@ -1,3 +1,5 @@
+# Le chunker doit transformer chaque description en chunk de type image, qui garde le chemin de l’image en métadonnée
+# TRaitement d'images : on va générer un vecteur CLIP pour chaque image, et l'enregistrer dans la base de données. On va aussi générer un texte descriptif pour chaque image, et l'enregistrer dans la base de données
 from pathlib import Path
 
 from llama_index.core import StorageContext, VectorStoreIndex
@@ -12,13 +14,13 @@ from app.ingestion.parser import compute_hash, parse_pdf
 
 EXTRACTED_DIR = Path(__file__).resolve().parents[2] / "data" / "extracted"
 
-
+# Here we have the function to_pgvector that takes a list of floats (representing a vector) or None as input. If the input is None, it returns None. Otherwise, it formats the list of floats into a string representation suitable for PostgreSQL's vector type, with each float rounded to six decimal places and enclosed in square brackets
 def to_pgvector(vector: list[float] | None) -> str | None:
     if vector is None:
         return None
     return "[" + ",".join(f"{x:.6f}" for x in vector) + "]"
 
-
+# ALors là , la fonction delete_document prend un identifiant de document en entrée et supprime le document correspondant de la base de données, ainsi que ses images associées (en cascade) et ses chunks. Elle utilise une transaction pour s'assurer que toutes les suppressions sont effectuées de manière atomique
 def delete_document(document_id: int) -> None:
     """Supprime un document, ses images (cascade) ET ses chunks."""
     with engine.begin() as conn:
@@ -33,7 +35,8 @@ def delete_document(document_id: int) -> None:
             )
         conn.execute(text("DELETE FROM documents WHERE id = :d"), {"d": document_id})
 
-
+# Alors là, la fonction ingest_pdf prend le chemin d'un fichier PDF et un booléen indiquant si les images doivent être traitées. Elle vérifie d'abord si le PDF a déjà été indexé en calculant son hachage et en recherchant dans la base de données. Si le PDF n'est pas encore indexé, il est analysé pour extraire le texte, les tableaux et les images. Les images sont ensuite traitées pour générer des vecteurs CLIP et des descriptions textuelles. Le document et les images sont enregistrés dans la base de données, puis les chunks sont créés à partir du contenu extrait et indexés avec leurs embeddings. 
+# En cas d'erreur lors de l'indexation des chunks, le document est supprimé pour éviter des incohérences dans la base de données.
 def ingest_pdf(pdf_path: str | Path, with_images: bool = True) -> dict:
     pdf_path = Path(pdf_path)
     file_hash = compute_hash(pdf_path)
