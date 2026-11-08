@@ -13,12 +13,14 @@ CAPTION_PROMPT = (
     "Mention the text, labels, boxes and arrows you can see."
 )
 
-
+# Between le @lru vas traiter le cache du modèle CLIP pour éviter de le recharger à chaque appel, ce qui améliore les performances lors de l'intégration des images 
+# La fonction get_clip_model retourne une instance de SentenceTransformer en utilisant le modèle "clip-ViT-B-32" spécifié. Cela permet d'obtenir le modèle d'intégration CLIP de manière efficace et rapide.
 @lru_cache(maxsize=1)
 def get_clip_model() -> SentenceTransformer:
     return SentenceTransformer("clip-ViT-B-32")
 
-
+# La fonction embed_images prend une liste de chemins d'images en entrée, ouvre chaque image, la convertit en format RGB, puis utilise le modèle CLIP mis en cache pour générer des vecteurs d'intégration pour chaque image 
+# Les vecteurs sont normalisés et convertis en listes de flottants avant d'être retournés.
 def embed_images(paths: list[str]) -> list[list[float]]:
     images = [Image.open(p).convert("RGB") for p in paths]
     return get_clip_model().encode(images, normalize_embeddings=True).tolist()
