@@ -20,6 +20,7 @@ class Settings(BaseSettings):
     embedding_model: str = "BAAI/bge-small-en-v1.5"
     embedding_dim: int = 384
     vision_model: str = "moondream"
+    min_score: float = 0.45
     groq_api_key: str | None = None
 
 # Instanciation de la classe Settings pour accéder aux paramètres de configuration dans l'application
