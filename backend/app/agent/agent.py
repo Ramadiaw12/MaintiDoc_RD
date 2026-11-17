@@ -1,3 +1,4 @@
+# Ce file nous permet de créer un agent LangChain pour répondre à des questions techniques à partir de documents PDF indexés. L'agent utilise des outils pour rechercher dans la documentation et les figures, et il est configuré pour suivre des règles strictes afin de fournir des réponses précises et sourcées.
 import re
 from functools import lru_cache
 
@@ -28,7 +29,7 @@ Règles strictes :
 5. N'invente jamais de valeur, de code ni de procédure.
 6. Réponds dans la langue de la question, de façon courte et précise."""
 
-
+# Alors là c'est un peu technique : on crée un modèle de chat Ollama avec des paramètres spécifiques pour l'agent. On utilise `lru_cache` pour ne pas recréer le modèle à chaque fois, ce qui économise du temps et des ressources
 @lru_cache(maxsize=1)
 def get_chat_model() -> ChatOllama:
     return ChatOllama(
@@ -40,7 +41,7 @@ def get_chat_model() -> ChatOllama:
         keep_alive="30m",
     )
 
-
+# Alors ici on définit une fonction pour construire les messages à envoyer à l'agent, en prenant en compte l'historique des échanges. On ne garde que les derniers tours et on tronque les anciens messages pour ne pas dépasser la limite de caractères. On enlève aussi les citations anciennes pour éviter la confusion.
 def build_messages(question: str, history: list[dict]) -> list[dict]:
     """Gestion du contexte : derniers tours seulement, tronqués, sans anciennes citations."""
     messages = []
@@ -51,7 +52,7 @@ def build_messages(question: str, history: list[dict]) -> list[dict]:
     messages.append({"role": "user", "content": question})
     return messages
 
-
+# Fonction principale pour exécuter l'agent
 def run_agent(question: str, history: list[dict]) -> dict:
     registry: list[dict] = []
     agent = create_agent(
@@ -71,7 +72,7 @@ def run_agent(question: str, history: list[dict]) -> dict:
     text = final if isinstance(final, str) else str(final)
     return {"text": text.strip(), "sources": registry, "tools_used": tools_used}
 
-
+# Ici on définit une fonction pour finaliser la réponse de l'agent. Elle vérifie les citations dans le texte, garde seulement celles qui sont valides et supprime les citations invalides. Elle retourne un dictionnaire avec la réponse finale, si elle est sourcée, les citations valides et invalides
 def finalize(text: str, sources: list[dict]) -> dict:
     numbers = {int(n) for n in re.findall(r"\[(\d+)\]", text)}
     valid = {s["n"] for s in sources}
@@ -82,7 +83,7 @@ def finalize(text: str, sources: list[dict]) -> dict:
     text = re.sub(r"[ \t]+", " ", text).strip()
     return {"answer": text, "grounded": bool(cited), "cited": cited, "invalid_citations": invalid}
 
-
+# Fonction principale pour obtenir la réponse de l'agent. Elle essaie d'exécuter l'agent avec la question et l'historique. Si l'agent échoue ou n'utilise aucun outil, elle tombe en mode "fallback" et utilise le pipeline RAG pour répondre. Elle retourne un dictionnaire avec la réponse, les sources, le mode utilisé et les outils utilisés
 def agent_answer(question: str, history: list[dict] | None = None) -> dict:
     history = history or []
     try:
