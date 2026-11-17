@@ -1,3 +1,4 @@
+# Outils pour les agents LangChain, qui sont des fonctions exposées à l'agent via le décorateur `@tool`
 from langchain.tools import tool
 from sqlalchemy import text
 
@@ -6,10 +7,11 @@ from app.db.session import engine
 from app.ingestion.image_processor import embed_text_clip
 from app.rag.retriever import retrieve
 
+# 
 TYPE_LABELS = {"text": "texte", "table": "tableau", "image": "description d'une figure"}
 MAX_CHARS = 800  # un passage trop long saturerait le contexte du petit modèle
 
-
+# FOnctions exposées à l'agent via le décorateur `@tool` pour la recherche dans la documentation et les figures indexées
 def build_tools(registry: list[dict]) -> list:
     """Crée les outils d'UNE requête. `registry` collecte les sources numérotées."""
 
@@ -17,7 +19,7 @@ def build_tools(registry: list[dict]) -> list:
         n = len(registry) + 1
         registry.append({"n": n, **source})
         return n
-
+    #TOol pour la recherche dans la documentation indexée
     @tool
     def search_documentation(query: str) -> str:
         """Cherche dans la documentation indexée (texte, tableaux, descriptions de figures).
@@ -35,7 +37,7 @@ def build_tools(registry: list[dict]) -> list:
             label = TYPE_LABELS.get(c["type"], c["type"])
             parts.append(f"[{n}] (page {c['page']}, {label})\n{c['text'][:MAX_CHARS]}")
         return "\n\n".join(parts)
-
+    #Tools pour la recherche de figures, schémas ou images à partir d'une description de leur contenu
     @tool
     def search_figures(description: str) -> str:
         """Cherche des figures, schémas ou images à partir d'une description de leur contenu.
@@ -61,7 +63,7 @@ def build_tools(registry: list[dict]) -> list:
             })
             parts.append(f"[{n}] (page {r['page']}, figure)\n{caption[:MAX_CHARS]}")
         return "\n\n".join(parts)
-
+    #Tool pour lister les documents indexés
     @tool
     def list_documents() -> str:
         """Liste les documents indexés avec leur nombre de pages."""
