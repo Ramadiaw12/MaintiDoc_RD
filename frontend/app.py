@@ -52,11 +52,22 @@ def error_message(response: httpx.Response) -> str:
     return str(detail)
 
 
-def ask_api(question: str, top_k: int) -> tuple[dict | None, str | None]:
+def ask_api(question: str, top_k: int, use_agent: bool, history: list[dict]) -> tuple[dict | None, str | None]:
     try:
-        r = httpx.post(
-            f"{API}/chat", json={"question": question, "top_k": top_k}, timeout=300
-        )
+        if use_agent:
+            turns = [
+                {"role": m["role"],
+                 "content": m["content"] if m["role"] == "user" else m["payload"]["answer"]}
+                for m in history
+                if m["role"] == "user" or "payload" in m
+            ]
+            r = httpx.post(
+                f"{API}/agent/chat", json={"question": question, "history": turns[-6:]}, timeout=600
+            )
+        else:
+            r = httpx.post(
+                f"{API}/chat", json={"question": question, "top_k": top_k}, timeout=300
+            )
     except httpx.HTTPError as error:
         return None, f"Erreur de connexion : {error}"
     if r.status_code != 200:
