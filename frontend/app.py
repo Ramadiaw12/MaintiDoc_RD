@@ -1,4 +1,5 @@
 import os
+import time
 from pathlib import Path
 
 import httpx
@@ -7,9 +8,21 @@ import streamlit as st
 BASE_URL = os.getenv("MAINTIDOC_API_URL", "http://localhost:8000")
 API = f"{BASE_URL}/api/v1"
 
+EXAMPLES = [
+    "How many layers does the encoder have?",
+    "What is multi-head attention?",
+    "What BLEU score did the big model reach on English-to-German?",
+]
+
 st.set_page_config(page_title="MaintiDoc", page_icon="🔧", layout="wide")
 
+st.session_state.setdefault("messages", [])
+st.session_state.setdefault("pending", None)
+st.session_state.setdefault("confirm_delete", None)
 
+
+# ---------- Appels à l'API ----------
+@st.cache_data(ttl=5, show_spinner=False)
 def api_ok() -> bool:
     try:
         httpx.get(f"{BASE_URL}/health", timeout=3).raise_for_status()
@@ -18,13 +31,40 @@ def api_ok() -> bool:
         return False
 
 
+@st.cache_data(ttl=10, show_spinner=False)
+def list_documents() -> list[dict]:
+    try:
+        r = httpx.get(f"{API}/documents", timeout=10)
+        r.raise_for_status()
+        return r.json()
+    except (httpx.HTTPError, ValueError):
+        return []
+
+
 def error_message(response: httpx.Response) -> str:
     try:
-        return str(response.json().get("detail", response.text))
+        data = response.json()
     except ValueError:
         return response.text
+    detail = data.get("detail", response.text) if isinstance(data, dict) else response.text
+    if isinstance(detail, list):  # erreurs de validation (422)
+        return "; ".join(str(item.get("msg", item)) for item in detail)
+    return str(detail)
 
 
+def ask_api(question: str, top_k: int) -> tuple[dict | None, str | None]:
+    try:
+        r = httpx.post(
+            f"{API}/chat", json={"question": question, "top_k": top_k}, timeout=300
+        )
+    except httpx.HTTPError as error:
+        return None, f"Erreur de connexion : {error}"
+    if r.status_code != 200:
+        return None, error_message(r)
+    return r.json(), None
+
+
+# ---------- Affichage ----------
 def render_assistant(payload: dict) -> None:
     st.markdown(payload["answer"])
     if payload["sources"] and not payload["grounded"]:
@@ -38,16 +78,35 @@ def render_assistant(payload: dict) -> None:
                 path = s.get("file_path")
                 if s["type"] == "image" and path and Path(path).exists():
                     st.image(path, width=400)
+    if payload.get("elapsed"):
+        st.caption(f"Réponse en {payload['elapsed']:.0f} s")
 
 
-# ---------- Barre latérale : état, envoi de PDF, documents ----------
+def render_message(message: dict) -> None:
+    with st.chat_message(message["role"]):
+        if message["role"] == "user":
+            st.markdown(message["content"])
+        elif "error" in message:
+            st.error(message["error"])
+        else:
+            render_assistant(message["payload"])
+
+
+# ---------- Barre latérale ----------
 connected = api_ok()
+documents = list_documents() if connected else []
+
 with st.sidebar:
     st.title("🔧 MaintiDoc")
     if connected:
         st.success("API connectée")
     else:
         st.error("API injoignable. Dans backend/ : uv run uvicorn app.main:app --port 8000")
+    st.caption(f"API : {BASE_URL}")
+
+    st.subheader("Réglages")
+    top_k = st.slider("Passages consultés", 1, 8, 3,
+                      help="Plus de passages donne plus de contexte, mais des réponses plus lentes.")
 
     st.subheader("Ajouter un PDF")
     uploaded = st.file_uploader("Choisis un PDF", type=["pdf"])
@@ -67,59 +126,79 @@ with st.sidebar:
                         st.info("Ce PDF est déjà indexé.")
                     else:
                         st.success(f"Indexé : {result.get('chunks')} passages.")
+                    list_documents.clear()
+                    documents = list_documents()
                 else:
                     st.error(error_message(r))
             except httpx.HTTPError as error:
                 st.error(f"Erreur de connexion : {error}")
 
     st.subheader("Documents indexés")
-    if connected:
-        try:
-            documents = httpx.get(f"{API}/documents", timeout=10).json()
-        except (httpx.HTTPError, ValueError):
-            documents = []
-        if not documents:
-            st.caption("Aucun document.")
-        for d in documents:
-            left, right = st.columns([5, 1])
-            left.write(f"📄 {d['filename']} ({d['page_count']} p.)")
-            if right.button("🗑", key=f"delete_{d['id']}", help="Supprimer ce document"):
-                httpx.delete(f"{API}/documents/{d['id']}", timeout=60)
-                st.rerun()
+    if not documents:
+        st.caption("Aucun document.")
+    for d in documents:
+        left, right = st.columns([5, 1])
+        left.write(f"📄 {d['filename']} ({d['page_count']} p.)")
+        if right.button("🗑", key=f"delete_{d['id']}", help="Supprimer ce document"):
+            st.session_state.confirm_delete = d["id"]
+
+    if st.session_state.confirm_delete is not None:
+        st.warning("Supprimer ce document et tous ses passages ? Cette action est définitive.")
+        yes, no = st.columns(2)
+        if yes.button("Oui, supprimer"):
+            r = httpx.delete(f"{API}/documents/{st.session_state.confirm_delete}", timeout=60)
+            if r.status_code not in (200, 204):
+                st.error(error_message(r))
+            st.session_state.confirm_delete = None
+            list_documents.clear()
+            st.rerun()
+        if no.button("Annuler"):
+            st.session_state.confirm_delete = None
+            st.rerun()
 
     st.divider()
     if st.button("Effacer la conversation"):
         st.session_state.messages = []
         st.rerun()
 
-# ---------- Zone principale : conversation ----------
+# ---------- Zone principale ----------
 st.header("Pose ta question")
+st.caption("Les réponses reposent uniquement sur les documents indexés, avec leurs sources.")
 
-if "messages" not in st.session_state:
-    st.session_state.messages = []
+if connected and not documents:
+    st.info("Aucun document indexé : ajoute un PDF dans la barre latérale pour commencer.")
+
+typed = st.chat_input(
+    "Ex. : How many layers does the encoder have?",
+    disabled=not (connected and documents),
+)
+question = typed or st.session_state.pending
+st.session_state.pending = None
 
 for message in st.session_state.messages:
-    with st.chat_message(message["role"]):
-        if message["role"] == "user":
-            st.markdown(message["content"])
-        else:
-            render_assistant(message["payload"])
+    render_message(message)
 
-question = st.chat_input("Ex. : How many layers does the encoder have?", disabled=not connected)
+if not st.session_state.messages and not question and connected and documents:
+    st.write("Essaie une question :")
+    for example in EXAMPLES:
+        if st.button(example, use_container_width=True):
+            st.session_state.pending = example
+            st.rerun()
+
 if question:
-    st.session_state.messages.append({"role": "user", "content": question})
-    with st.chat_message("user"):
-        st.markdown(question)
+    user_message = {"role": "user", "content": question}
+    st.session_state.messages.append(user_message)
+    render_message(user_message)
 
     with st.chat_message("assistant"):
         with st.spinner("Recherche dans la documentation..."):
-            try:
-                r = httpx.post(f"{API}/chat", json={"question": question}, timeout=300)
-                if r.status_code == 200:
-                    payload = r.json()
-                    render_assistant(payload)
-                    st.session_state.messages.append({"role": "assistant", "payload": payload})
-                else:
-                    st.error(error_message(r))
-            except httpx.HTTPError as error:
-                st.error(f"Erreur de connexion : {error}")
+            started = time.perf_counter()
+            payload, error = ask_api(question, top_k)
+        if error:
+            st.error(error)
+            reply = {"role": "assistant", "error": error}
+        else:
+            payload["elapsed"] = time.perf_counter() - started
+            render_assistant(payload)
+            reply = {"role": "assistant", "payload": payload}
+    st.session_state.messages.append(reply)
