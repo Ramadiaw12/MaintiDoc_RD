@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MaintiDoc</title>
+<style>
+  /* ===== Palette élégante beige / brun / noir ===== */
+  :root {
+    --beige:  #F5EFE6;
+    --sand:   #E8DCC8;
+    --brown:  #8B6F47;
+    --cocoa:  #5C4033;
+    --ink:    #2B2118;
+
+    --bg: var(--beige);
+    --panel: #FFFDF9;
+    --line: var(--sand);
+    --text: var(--ink);
+    --muted: #7A6A58;
+    --accent: var(--brown);
+    --accent-soft: #EFE4D4;
+    --ok: #4F7942;
+    --warn: #A9741E;
+    --err: #A63A2E;
+    --shadow: 0 4px 20px rgba(43, 33, 24, 0.06);
+    --shadow-lg: 0 12px 40px rgba(43, 33, 24, 0.12);
+  }
+
+  [data-theme="dark"] {
+    --bg: #1A1512;
+    --panel: #241D18;
+    --line: #3A2E25;
+    --text: #EDE4D8;
+    --muted: #A89884;
+    --accent: #C49A6C;
+    --accent-soft: #322720;
+    --ok: #7FB069;
+    --warn: #D4A24C;
+    --err: #E07A6B;
+    --shadow: 0 4px 20px rgba(0, 0, 0, 0.35);
+    --shadow-lg: 0 12px 40px rgba(0, 0, 0, 0.5);
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    height: 100vh;
+    display: flex;
+    font: 15px/1.6 "Inter", system-ui, -apple-system, sans-serif;
+    color: var(--text);
+    background: var(--bg);
+    transition: background .3s ease, color .3s ease;
+  }
+
+  /* ===== Sidebar ===== */
+  aside {
+    width: 320px;
+    flex-shrink: 0;
+    padding: 24px 20px;
+    overflow-y: auto;
+    background: var(--panel);
+    border-right: 1px solid var(--line);
+    box-shadow: var(--shadow);
+    transition: background .3s ease, border-color .3s ease;
+  }
+
+  h1 {
+    margin: 0 0 12px;
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  h2 {
+    margin: 24px 0 10px;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    color: var(--muted);
+    font-weight: 600;
+  }
+
+  /* ===== Badge ===== */
+  .badge {
+    display: inline-block;
+    padding: 3px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: .02em;
+  }
+  .badge.ok  { background: color-mix(in srgb, var(--ok) 15%, transparent); color: var(--ok); }
+  .badge.err { background: color-mix(in srgb, var(--err) 15%, transparent); color: var(--err); }
+
+  /* ===== Boutons ===== */
+  button {
+    font: inherit;
+    padding: 8px 14px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--panel);
+    color: var(--text);
+    cursor: pointer;
+    transition: all .18s ease;
+  }
+  button:hover:not(:disabled) {
+    border-color: var(--accent);
+    background: var(--accent-soft);
+    transform: translateY(-1px);
+  }
+  button:disabled { opacity: .45; cursor: not-allowed; }
+
+  button.primary {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+    font-weight: 600;
+  }
+  button.primary:hover:not(:disabled) {
+    background: var(--cocoa);
+    border-color: var(--cocoa);
+    color: #fff;
+  }
+  [data-theme="dark"] button.primary:hover:not(:disabled) {
+    background: var(--sand);
+    border-color: var(--sand);
+    color: var(--ink);
+  }
+
+  /* ===== Theme toggle ===== */
+  .theme-toggle {
+    width: 38px; height: 38px;
+    padding: 0;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 17px;
+    background: var(--accent-soft);
+    border: 1px solid var(--line);
+  }
+  .theme-toggle:hover:not(:disabled) { transform: rotate(15deg); }
+
+  /* ===== Labels / inputs ===== */
+  label { display: block; margin: 10px 0; font-size: 14px; }
+  input[type=range] { width: 100%; accent-color: var(--accent); margin-top: 6px; }
+  input[type=file] { width: 100%; font-size: 13px; margin-bottom: 8px; }
+  input[type=checkbox] { accent-color: var(--accent); }
+
+  /* ===== Documents ===== */
+  .doc {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--line);
+    font-size: 14px;
+  }
+  .doc span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .doc button { padding: 4px 8px; font-size: 13px; }
+
+  /* ===== Chat ===== */
+  main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+
+  #chat {
+    flex: 1;
+    overflow-y: auto;
+    padding: 32px 24px;
+    scroll-behavior: smooth;
+  }
+
+  .msg {
+    max-width: 820px;
+    margin: 0 auto 18px;
+    padding: 16px 20px;
+    border-radius: 14px;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    box-shadow: var(--shadow);
+    animation: fadeUp .3s ease;
+  }
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .msg.user {
+    background: var(--accent-soft);
+    border-color: color-mix(in srgb, var(--accent) 30%, var(--line));
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  .msg.error { border-color: var(--err); color: var(--err); }
+
+  .text { white-space: pre-wrap; }
+
+  .warn {
+    margin-top: 10px;
+    padding: 8px 12px;
+    border-radius: 8px;
+    background: color-mix(in srgb, var(--warn) 12%, transparent);
+    color: var(--warn);
+    font-size: 14px;
+    border-left: 3px solid var(--warn);
+  }
+
+  .meta { margin-top: 8px; font-size: 13px; color: var(--muted); }
+
+  details { margin-top: 12px; }
+  summary {
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--accent);
+    padding: 4px 0;
+  }
+  summary:hover { text-decoration: underline; }
+
+  .source {
+    margin: 10px 0;
+    padding: 8px 12px;
+    border-left: 3px solid var(--line);
+    font-size: 14px;
+    background: color-mix(in srgb, var(--line) 20%, transparent);
+    border-radius: 0 8px 8px 0;
+  }
+  .source.cited {
+    border-color: var(--ok);
+    background: color-mix(in srgb, var(--ok) 8%, transparent);
+  }
+  .source img {
+    display: block;
+    max-width: 100%;
+    max-height: 360px;
+    margin-top: 8px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+  }
+
+  /* ===== Exemples ===== */
+  .examples {
+    max-width: 820px;
+    margin: 0 auto;
+    display: grid;
+    gap: 10px;
+  }
+  .examples button { text-align: left; padding: 12px 16px; }
+
+  /* ===== Formulaire ===== */
+  form {
+    display: flex;
+    gap: 10px;
+    padding: 18px 24px;
+    border-top: 1px solid var(--line);
+    background: var(--panel);
+    box-shadow: 0 -4px 20px rgba(43, 33, 24, 0.05);
+  }
+  input[type=text] {
+    flex: 1;
+    padding: 12px 16px;
+    font: inherit;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: var(--bg);
+    color: var(--text);
+    transition: border-color .18s ease, box-shadow .18s ease;
+  }
+  input[type=text]:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 20%, transparent);
+  }
+  input[type=text]::placeholder { color: var(--muted); }
+
+  /* ===== Scrollbar ===== */
+  ::-webkit-scrollbar { width: 10px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb {
+    background: var(--line);
+    border-radius: 10px;
+    border: 2px solid var(--bg);
+  }
+  ::-webkit-scrollbar-thumb:hover { background: var(--muted); }
+
+  @media (max-width: 800px) {
+    body { flex-direction: column; height: auto; }
+    aside { width: 100%; border-right: none; border-bottom: 1px solid var(--line); }
+    #chat { min-height: 50vh; }
+  }
+</style>
+</head>
+<body>
+<aside>
+  <h1>
+    <span>🔧 MaintiDoc</span>
+    <button id="themeToggle" class="theme-toggle" title="Basculer le thème">🌙</button>
+  </h1>
+  <span id="status" class="badge err">API injoignable</span>
+
+  <h2>Réglages</h2>
+  <label>Passages consultés : <b id="topkValue">3</b>
+    <input id="topk" type="range" min="1" max="8" value="3">
+  </label>
+  <label><input id="useAgent" type="checkbox"> Mode agent (plus lent)</label>
+
+  <h2>Ajouter un PDF</h2>
+  <input id="file" type="file" accept="application/pdf">
+  <label><input id="withImages" type="checkbox"> Décrire les images (lent)</label>
+  <button id="uploadBtn" class="primary">Indexer</button>
+  <div id="uploadMsg" class="meta"></div>
+
+  <h2>Documents indexés</h2>
+  <div id="docs"></div>
+
+  <h2>Conversation</h2>
+  <button id="clearBtn">Effacer la conversation</button>
+</aside>
+
+<main>
+  <div id="chat"></div>
+  <form id="form">
+    <input id="question" type="text" placeholder="Pose ta question…" autocomplete="off" maxlength="1000">
+    <button id="sendBtn" class="primary" type="submit">Envoyer</button>
+  </form>
+</main>
+
+<script>
+const API = "/api/v1";
+const EXAMPLES = [
+  "How many layers does the encoder have?",
+  "What is multi-head attention?",
+  "What BLEU score did the big model reach on English-to-German?",
+];
+const state = { messages: [], busy: false, connected: false, documents: [] };
+const $ = (id) => document.getElementById(id);
+
+// ---------- Thème clair / sombre ----------
+(function initTheme() {
+  const saved = localStorage.getItem("maindoc-theme");
+  const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+  const theme = saved || (prefersDark ? "dark" : "light");
+  document.documentElement.setAttribute("data-theme", theme);
+  updateThemeButton(theme);
+})();
+
+function updateThemeButton(theme) {
+  const btn = $("themeToggle");
+  if (!btn) return;
+  btn.textContent = theme === "dark" ? "☀️" : "🌙";
+  btn.title = theme === "dark" ? "Passer en mode clair" : "Passer en mode sombre";
+}
+
+function toggleTheme() {
+  const current = document.documentElement.getAttribute("data-theme");
+  const next = current === "dark" ? "light" : "dark";
+  document.documentElement.setAttribute("data-theme", next);
+  localStorage.setItem("maindoc-theme", next);
+  updateThemeButton(next);
+}
+
+// ---------- Outils ----------
+function el(tag, className, text) {
+  const node = document.createElement(tag);
+  if (className) node.className = className;
+  if (text !== undefined) node.textContent = text;
+  return node;
+}
+
+const post = (data) => ({
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify(data),
+});
+
+async function errorText(response) {
+  try {
+    const data = await response.json();
+    const detail = data.detail ?? data;
+    if (Array.isArray(detail)) return detail.map((d) => d.msg || JSON.stringify(d)).join("; ");
+    return typeof detail === "string" ? detail : JSON.stringify(detail);
+  } catch {
+    return `Erreur ${response.status}`;
+  }
+}
+
+async function request(path, options = {}, timeoutMs = 30000) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetch(path, { ...options, signal: controller.signal });
+    if (!response.ok) throw new Error(await errorText(response));
+    return response.status === 204 ? null : await response.json();
+  } catch (error) {
+    if (error.name === "AbortError") throw new Error("Délai dépassé : le serveur n'a pas répondu à temps.");
+    if (error instanceof TypeError) throw new Error("API injoignable.");
+    throw error;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+function fileUrl(path) {
+  const marker = "/data/extracted/";
+  const i = path ? path.indexOf(marker) : -1;
+  return i >= 0 ? "/files/" + encodeURI(path.slice(i + marker.length)) : null;
+}
+
+// ---------- État de l'interface ----------
+function updateControls() {
+  const ready = state.connected && state.documents.length > 0 && !state.busy;
+  $("question").disabled = !ready;
+  $("sendBtn").disabled = !ready;
+  $("uploadBtn").disabled = !state.connected || state.busy;
+}
+
+async function checkApi() {
+  try {
+    await request("/health", {}, 3000);
+    state.connected = true;
+  } catch {
+    state.connected = false;
+  }
+  const badge = $("status");
+  badge.textContent = state.connected ? "API connectée" : "API injoignable";
+  badge.className = "badge " + (state.connected ? "ok" : "err");
+  updateControls();
+}
+
+// ---------- Documents ----------
+async function loadDocuments() {
+  try {
+    state.documents = await request(`${API}/documents`);
+  } catch {
+    state.documents = [];
+  }
+  const box = $("docs");
+  box.replaceChildren();
+  if (!state.documents.length) box.append(el("div", "meta", "Aucun document."));
+  for (const doc of state.documents) {
+    const row = el("div", "doc");
+    row.append(el("span", "", `📄 ${doc.filename} (${doc.page_count ?? "?"} p.)`));
+    const del = el("button", "", "🗑");
+    del.title = "Supprimer ce document";
+    del.onclick = () => removeDocument(doc);
+    row.append(del);
+    box.append(row);
+  }
+  updateControls();
+  if (!state.busy) renderChat();
+}
+
+async function removeDocument(doc) {
+  if (!confirm(`Supprimer « ${doc.filename} » et tous ses passages ? Cette action est définitive.`)) return;
+  try {
+    await request(`${API}/documents/${doc.id}`, { method: "DELETE" }, 60000);
+  } catch (error) {
+    $("uploadMsg").textContent = "Erreur : " + error.message;
+  }
+  await loadDocuments();
+}
+
+async function uploadPdf() {
+  const file = $("file").files[0];
+  if (!file) {
+    $("uploadMsg").textContent = "Choisis d'abord un PDF.";
+    return;
+  }
+  const body = new FormData();
+  body.append("file", file);
+  state.busy = true;
+  updateControls();
+  $("uploadMsg").textContent = "Indexation en cours, cela peut prendre plusieurs minutes…";
+  try {
+    const result = await request(
+      `${API}/documents?with_images=${$("withImages").checked}`,
+      { method: "POST", body },
+      30 * 60 * 1000,
+    );
+    $("uploadMsg").textContent =
+      result.status === "already_indexed" ? "Ce PDF est déjà indexé." : `Indexé : ${result.chunks} passages.`;
+    $("file").value = "";
+  } catch (error) {
+    $("uploadMsg").textContent = "Erreur : " + error.message;
+  }
+  state.busy = false;
+  await loadDocuments();
+}
+
+// ---------- Conversation ----------
+function addBox(kind) {
+  const box = el("div", "msg " + kind);
+  $("chat").append(box);
+  box.scrollIntoView({ block: "end" });
+  return box;
+}
+
+function renderAssistant(box, payload) {
+  box.append(el("div", "text", payload.answer));
+  if (payload.sources.length && !payload.grounded) {
+    box.append(el("div", "warn", "Aucune source vérifiable n'est citée : vérifie dans le document avant d'agir."));
+  }
+  if (payload.sources.length) {
+    const details = el("details");
+    details.append(el("summary", "", `Sources consultées (${payload.sources.length})`));
+    for (const s of payload.sources) {
+      const cited = payload.cited.includes(s.n);
+      const item = el("div", "source" + (cited ? " cited" : ""));
+      item.append(el("div", "", `[${s.n}] page ${s.page} · ${s.type} · score ${s.score}${cited ? " · ✅ citée" : ""}`));
+      item.append(el("div", "meta", s.extract));
+      const url = s.type === "image" ? fileUrl(s.file_path) : null;
+      if (url) {
+        const img = el("img");
+        img.src = url;
+        img.alt = "Figure de la page " + s.page;
+        item.append(img);
+      }
+      details.append(item);
+    }
+    box.append(details);
+  }
+  const parts = [];
+  if (payload.mode) parts.push(`Mode : ${payload.mode} · outils : ${(payload.tools_used || []).join(", ") || "aucun"}`);
+  if (payload.elapsed) parts.push(`Réponse en ${payload.elapsed.toFixed(0)} s`);
+  if (parts.length) box.append(el("div", "meta", parts.join(" — ")));
+  if (payload.fallback_reason) box.append(el("div", "meta", "Repli sur le RAG : " + payload.fallback_reason));
+}
+
+function drawMessage(m) {
+  const box = addBox(m.role === "user" ? "user" : m.error ? "assistant error" : "assistant");
+  if (m.role === "user") box.append(el("div", "text", m.content));
+  else if (m.error) box.append(el("div", "text", m.error));
+  else renderAssistant(box, m.payload);
+}
+
+function renderChat() {
+  const chat = $("chat");
+  chat.replaceChildren();
+  if (!state.messages.length) {
+    if (state.documents.length) {
+      const box = el("div", "examples");
+      box.append(el("div", "meta", "Essaie une question :"));
+      for (const q of EXAMPLES) {
+        const button = el("button", "", q);
+        button.onclick = () => ask(q);
+        box.append(button);
+      }
+      chat.append(box);
+    } else {
+      chat.append(el("div", "meta", "Aucun document indexé : ajoute un PDF dans la barre latérale pour commencer."));
+    }
+  }
+  for (const m of state.messages) drawMessage(m);
+}
+
+async function ask(question) {
+  question = question.trim();
+  if (!question || state.busy || $("question").disabled) return;
+  if (!state.messages.length) $("chat").replaceChildren();
+
+  const history = state.messages
+    .filter((m) => m.role === "user" || m.payload)
+    .map((m) => ({ role: m.role, content: m.role === "user" ? m.content : m.payload.answer }))
+    .slice(-6);
+
+  const userMessage = { role: "user", content: question };
+  state.messages.push(userMessage);
+  drawMessage(userMessage);
+
+  const waiting = addBox("assistant");
+  waiting.append(el("div", "meta", "Recherche dans la documentation…"));
+  state.busy = true;
+  updateControls();
+
+  const started = performance.now();
+  let reply;
+  try {
+    const payload = $("useAgent").checked
+      ? await request(`${API}/agent/chat`, post({ question, history }), 600000)
+      : await request(`${API}/chat`, post({ question, top_k: Number($("topk").value) }), 300000);
+    payload.elapsed = (performance.now() - started) / 1000;
+    reply = { role: "assistant", payload };
+  } catch (error) {
+    reply = { role: "assistant", error: error.message };
+  }
+
+  waiting.remove();
+  state.messages.push(reply);
+  drawMessage(reply);
+  state.busy = false;
+  updateControls();
+  $("question").focus();
+}
+
+// ---------- Branchements ----------
+$("form").addEventListener("submit", (event) => {
+  event.preventDefault();
+  const question = $("question").value;
+  $("question").value = "";
+  ask(question);
+});
+$("topk").addEventListener("input", () => ($("topkValue").textContent = $("topk").value));
+$("uploadBtn").addEventListener("click", uploadPdf);
+$("clearBtn").addEventListener("click", () => {
+  state.messages = [];
+  renderChat();
+});
+$("themeToggle").addEventListener("click", toggleTheme);
+
+(async function init() {
+  await checkApi();
+  if (state.connected) await loadDocuments();
+  else renderChat();
+  setInterval(checkApi, 10000);
+})();
+</script>
+</body>
+</html>
