@@ -1,11 +1,13 @@
-# Le file est responsable de la génération de réponses à partir d'un modèle de langage (LLM) en utilisant l'API Ollama
+import os
+
 import httpx
 
 from app.core.config import settings
 
-#  La fonction generate prend deux chaînes de caractères en entrée : system et user.
-#  Elle envoie une requête POST à l'API Ollama pour générer une réponse basée sur le modèle de langage spécifié dans les paramètres de configuration. 
-#  La requête inclut les messages du système et de l'utilisateur, ainsi que des options pour le modèle, retourne la réponse générée par le modèle après avoir vérifié que la requête a réussi.
+NUM_CTX = int(os.getenv("LLM_NUM_CTX", "3072"))
+MAX_ANSWER_TOKENS = int(os.getenv("LLM_MAX_TOKENS", "300"))
+
+
 def generate(system: str, user: str) -> str:
     response = httpx.post(
         f"{settings.ollama_base_url}/api/chat",
@@ -16,9 +18,17 @@ def generate(system: str, user: str) -> str:
                 {"role": "user", "content": user},
             ],
             "stream": False,
-            "options": {"temperature": 0.1, "num_ctx": 4096},
+            "keep_alive": "30m",
+            "options": {
+                "temperature": 0.1,
+                "num_ctx": NUM_CTX,
+                "num_predict": MAX_ANSWER_TOKENS,
+            },
         },
         timeout=300,
     )
-    response.raise_for_status()
+    if response.status_code != 200:
+        raise RuntimeError(
+            f"Ollama a répondu {response.status_code} : {response.text[:500]}"
+        )
     return response.json()["message"]["content"].strip()
