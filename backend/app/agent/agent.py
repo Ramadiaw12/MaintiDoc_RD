@@ -14,20 +14,16 @@ from app.rag.pipeline import answer as rag_answer
 MAX_TURNS = 3            # nombre d'échanges gardés en mémoire
 MAX_HISTORY_CHARS = 600  # taille maximale d'un ancien message
 
-AGENT_PROMPT = """Tu es MaintiDoc, un assistant documentaire pour techniciens de maintenance.
+AGENT_PROMPT = AGENT_PROMPT = """Tu es MaintiDoc, assistant documentaire pour techniciens de maintenance.
+Tu ne connais RIEN par toi-même : toute ta connaissance vient des outils.
 
-Outils :
-- search_documentation : pour toute question technique.
-- search_figures : pour voir un schéma, un diagramme ou une image.
-- list_documents : pour savoir quels documents sont disponibles.
-
-Règles strictes :
-1. Pour toute question technique, appelle d'abord un outil de recherche.
-2. Réponds UNIQUEMENT à partir des résultats des outils.
-3. Cite chaque affirmation avec le numéro de sa source, par exemple [1]. N'utilise jamais un numéro absent des résultats.
-4. Si les résultats indiquent qu'aucun passage n'est pertinent, réponds : "Je ne trouve pas cette information dans la documentation."
-5. N'invente jamais de valeur, de code ni de procédure.
-6. Réponds dans la langue de la question, de façon courte et précise."""
+Procédure obligatoire :
+1. Pour toute question technique, appelle d'abord search_documentation. Ne réponds jamais sans avoir appelé un outil.
+2. Pour voir un schéma ou une image, appelle search_figures.
+3. Pour savoir quels documents existent, appelle list_documents.
+4. Rédige ensuite ta réponse uniquement avec les résultats reçus, en citant chaque affirmation avec son numéro, par exemple [1].
+5. N'invente rien : aucune valeur, aucun code, aucune procédure.
+6. Réponds dans la langue de la question, en une ou deux phrases."""
 
 # Alors là c'est un peu technique : on crée un modèle de chat Ollama avec des paramètres spécifiques pour l'agent. On utilise `lru_cache` pour ne pas recréer le modèle à chaque fois, ce qui économise du temps et des ressources
 @lru_cache(maxsize=1)
@@ -92,15 +88,17 @@ def agent_answer(question: str, history: list[dict] | None = None) -> dict:
         fallback = rag_answer(question)
         return {**fallback, "mode": "rag_fallback", "tools_used": [],
                 "fallback_reason": f"L'agent a échoué : {error}"}
-
+    # Si l'agent n'a utilisé aucun outil, on tombe en mode "fallback" et on utilise le pipeline RAG pour répondre. Cela permet de garantir que l'utilisateur obtienne une réponse même si l'agent ne peut pas traiter la question correctement
     if not run["tools_used"]:
         fallback = rag_answer(question)
         return {**fallback, "mode": "rag_fallback", "tools_used": [],
                 "fallback_reason": "L'agent n'a utilisé aucun outil."}
 
+    # Si l'agent n'a trouvé aucune source pertinente et qu'il n'a pas utilisé l'outil `list_documents`, on retourne un message indiquant qu'aucune réponse n'a été trouvée. Cela permet d'informer l'utilisateur que la question n'a pas pu être résolue avec les documents disponibles
     if not run["sources"] and "list_documents" not in run["tools_used"]:
         return {"answer": NOT_FOUND, "grounded": False, "cited": [], "invalid_citations": [],
                 "sources": [], "mode": "agent", "tools_used": run["tools_used"]}
 
+    # Sinon, on finalise la réponse de l'agent en vérifiant les citations et en nettoyant le texte. On retourne un dictionnaire avec la réponse finale, les sources, le mode utilisé et les outils utilisés
     return {**finalize(run["text"], run["sources"]), "sources": run["sources"],
             "mode": "agent", "tools_used": run["tools_used"]}

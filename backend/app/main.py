@@ -1,3 +1,5 @@
+# Fichier principal de l'application FastAPI. Il définit le contexte de vie de l'application, les routes principales et les points de terminaison pour la santé et la documentation. Il importe le routeur de l'API v1 et inclut les routes dans l'application FastAPI. 
+# Il utilise un gestionnaire de contexte asynchrone pour charger le modèle d'embedding au démarrage de l'application
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -5,7 +7,8 @@ from fastapi.responses import RedirectResponse
 
 from app.api.v1.router import api_router
 
-
+# Alors là on définit un gestionnaire de contexte asynchrone pour la durée de vie de l'application. Il importe la fonction `get_index` du module `retriever` et l'appelle une fois au démarrage de l'application pour charger le modèle d'embedding. 
+# Cela permet d'optimiser les performances en évitant de recharger le modèle à chaque requête
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     from app.rag.retriever import get_index
