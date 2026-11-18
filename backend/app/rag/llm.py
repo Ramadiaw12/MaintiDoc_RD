@@ -5,6 +5,7 @@ import httpx
 
 from app.core.config import settings
 
+# On définit deux constantes pour le nombre de tokens de contexte et le nombre maximum de tokens pour la réponse, en les récupérant depuis les variables d'environnement ou en utilisant des valeurs par défaut. Cela permet de configurer la génération de texte selon les besoins de l'application
 NUM_CTX = int(os.getenv("LLM_NUM_CTX", "3072"))
 MAX_ANSWER_TOKENS = int(os.getenv("LLM_MAX_TOKENS", "300"))
 

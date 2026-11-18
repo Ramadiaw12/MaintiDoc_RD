@@ -19,8 +19,10 @@ def get_index() -> VectorStoreIndex:
 def retrieve(question: str, top_k: int = 5) -> list[dict]:
     results = get_index().as_retriever(similarity_top_k=top_k).retrieve(question)
     chunks = []
+
+    # On parcourt les résultats récupérés et on construit une liste de dictionnaires contenant les informations pertinentes pour chaque chunk, telles que le score de similarité, le texte, la page, le type, la source et le chemin du fichier associé
     for r in results:
-        meta = r.node.metadata
+        meta = r.node.metadata # alors là on récupère les métadonnées du noeud correspondant au résultat, qui contiennent des informations sur la page, le type de document, la source et le chemin du fichier associé. On ajoute ensuite un dictionnaire avec ces informations à la liste chunks
         chunks.append({
             "score": r.score or 0.0,
             "text": r.node.get_content(),

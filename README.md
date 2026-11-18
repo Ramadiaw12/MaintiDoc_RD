@@ -54,7 +54,7 @@ Les documents PDF sont traités afin d'en extraire les informations exploitables
 PDF
  │
  ▼
-Clip — Extraction documentaire
+PyMuPDF — Extraction documentaire
  │
  ├── Texte
  ├── Tableaux

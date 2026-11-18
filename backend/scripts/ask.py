@@ -1,3 +1,4 @@
+# Ce script permet d'interroger le modèle RAG en ligne de commande. Il prend la question en argument, appelle la fonction answer pour obtenir la réponse, et affiche le résultat avec les informations sur les citations et les sources consultées
 import sys
 
 from app.rag.pipeline import answer
