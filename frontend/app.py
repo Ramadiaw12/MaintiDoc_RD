@@ -51,7 +51,7 @@ def error_message(response: httpx.Response) -> str:
         return "; ".join(str(item.get("msg", item)) for item in detail)
     return str(detail)
 
-
+# ici nous avons une fonction pour interroger l'API avec la question de l'utilisateur. Elle peut utiliser soit l'agent, soit le pipeline RAG selon le paramètre `use_agent`. Elle gère les erreurs de connexion et retourne soit la réponse de l'API, soit un message d'erreur
 def ask_api(question: str, top_k: int, use_agent: bool, history: list[dict]) -> tuple[dict | None, str | None]:
     try:
         if use_agent:
