@@ -118,6 +118,7 @@ with st.sidebar:
     st.subheader("Réglages")
     top_k = st.slider("Passages consultés", 1, 8, 3,
                       help="Plus de passages donne plus de contexte, mais des réponses plus lentes.")
+    use_agent = st.toggle("Mode agent", value=False, help="Un agent choisit ses outils : plus lent, mais gère les schémas et le contexte.")
 
     st.subheader("Ajouter un PDF")
     uploaded = st.file_uploader("Choisis un PDF", type=["pdf"])
@@ -204,7 +205,7 @@ if question:
     with st.chat_message("assistant"):
         with st.spinner("Recherche dans la documentation..."):
             started = time.perf_counter()
-            payload, error = ask_api(question, top_k)
+            payload, error = ask_api(question, top_k, use_agent, st.session_state.messages[:-1])
         if error:
             st.error(error)
             reply = {"role": "assistant", "error": error}
