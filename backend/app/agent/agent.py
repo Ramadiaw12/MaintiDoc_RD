@@ -107,15 +107,15 @@ def agent_answer(question: str, history: list[dict] | None = None) -> dict:
         fallback = rag_answer(question)
         return {**fallback, "mode": "rag_fallback", "tools_used": [],
                 "fallback_reason": f"L'agent a échoué : {error}"}
-
+    # Si l'agent n'a pas produit de texte, on utilise le RAG comme solution de secours
     if not run["text"]:
         fallback = rag_answer(question)
         return {**fallback, "mode": "rag_fallback", "tools_used": run["tools_used"],
                 "fallback_reason": "L'agent n'a produit aucune réponse."}
-
+    # Si l'agent n'a pas trouvé de sources et n'a pas utilisé l'outil list_documents, on retourne une réponse indiquant que rien n'a été trouvé
     if not run["sources"] and "list_documents" not in run["tools_used"]:
         return {"answer": NOT_FOUND, "grounded": False, "cited": [], "invalid_citations": [],
                 "sources": [], "mode": "agent", "tools_used": run["tools_used"]}
-
+    # Retourne la réponse finale avec le texte, les sources, le mode et les outils utilisés
     return {**finalize(run["text"], run["sources"]), "sources": run["sources"],
             "mode": "agent", "tools_used": run["tools_used"]}

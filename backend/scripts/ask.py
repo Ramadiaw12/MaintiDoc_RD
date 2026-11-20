@@ -4,7 +4,7 @@ import sys
 from app.rag.pipeline import answer
 
 result = answer(" ".join(sys.argv[1:]))
-
+# x Afficher la réponse et les informations sur les citations et les sources
 print("\n" + result["answer"])
 print(f"\n[ancrée : {result['grounded']} | citées : {result['cited']} | invalides retirées : {result['invalid_citations']}]")
 for s in result["sources"]:

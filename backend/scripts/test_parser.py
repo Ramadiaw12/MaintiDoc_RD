@@ -18,6 +18,7 @@ print("Textes   :", len(result.text_docs))
 print("Tableaux :", len(result.table_docs))
 print("Images   :", len(result.images))
 
+# Afficher le texte extrait de la première page
 print("\n--- Début de la page 1 ---")
 print(result.text_docs[0].text[:400])
 
